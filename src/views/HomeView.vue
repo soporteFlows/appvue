@@ -1,5 +1,7 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import TablaMantenimiento from '@/components/TablaMantenimiento.vue'
+</script>
 
 <template>
-  <main></main>
+  <TablaMantenimiento />
 </template>

@@ -1,7 +1,29 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useQuasar } from 'quasar'
+import MainLayout from '@/layouts/MainLayout.vue'
+import EmptyLayout from '@/layouts/EmptyLayout.vue'
+const route = useRoute()
+
+const $q = useQuasar()
+onMounted(() => {
+  const savedTheme = localStorage.getItem('user-theme')
+  if (savedTheme === 'dark') {
+    $q.dark.set(true)
+  } else if (savedTheme === 'light') {
+    $q.dark.set(false)
+  }
+})
+const layout = computed(() => {
+  return route.meta.layout === 'empty' ? EmptyLayout : MainLayout
+})
+</script>
 
 <template>
-  <router-view />
+  <component :is="layout">
+    <router-view />
+  </component>
 </template>
 
 <style scoped>

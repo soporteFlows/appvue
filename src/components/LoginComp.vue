@@ -2,98 +2,90 @@
   <div>
     <h2>Iniciar Sesión</h2>
     <form @submit.prevent="handleLogin">
-      <!-- Usuario -->
       <label>
         <input v-model="username" type="text" placeholder="Usuario" required />
       </label>
 
-      <!-- Contraseña -->
       <label>
         <input v-model="password" type="password" placeholder="Contraseña" required />
       </label>
 
-      <!-- Recordarme -->
       <label>
         <input type="checkbox" v-model="rememberMe" />
         Recordarme
       </label>
 
-      <!-- Enlace para recuperar contraseña -->
       <div>
         <a href="#/auth/forgotPassword">¿Olvidó su contraseña?</a>
       </div>
 
-      <!-- Botón de inicio -->
-      <button type="submit"><i class="fas fa-arrow-right"></i> Iniciar</button>
+      <button type="submit" :disabled="loading">
+        <i class="fas fa-arrow-right"></i>
+        {{ loading ? 'Cargando...' : 'Iniciar' }}
+      </button>
     </form>
 
-    <!-- Mostrar respuesta -->
-    <div v-if="respuesta" class="respuesta">
-      <pre>{{ respuesta }}</pre>
-    </div>
-
-    <div v-if="error" class="error">
-      <pre>{{ error }}</pre>
-    </div>
+    <div v-if="error" class="error">{{ error }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import api from '@/config/axios'
+import type { AxiosError } from 'axios'
+import { useAuthStore } from '@/stores/authStore'
+const authStore = useAuthStore()
 
 const username = ref('')
 const password = ref('')
 const rememberMe = ref(false)
-
-const respuesta = ref('')
+const loading = ref(false)
 const error = ref('')
-
-const route = useRoute()
 const router = useRouter()
 
-// Login automático si viene desde Jasper con los parámetros
-onMounted(() => {
-  const user = route.query.j_username as string
-  const pass = route.query.j_password as string
-
-  if (user && pass) {
-    username.value = user
-    password.value = pass
-    handleLogin()
-  }
-})
+interface ErrorResponse {
+  message?: string
+  // otras propiedades que pueda tener tu error
+}
+interface LoginResponse {
+  access_token: string
+  refresh_token: string
+  token_type: string
+  expires_in: number
+  username: string
+  roles: string[]
+  id: number
+}
 
 const handleLogin = async () => {
-  respuesta.value = ''
+  loading.value = true
   error.value = ''
 
   try {
-    const res = await fetch('https://api.flowsma.com/donandres/api/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: username.value,
-        password: password.value,
-        rememberMe: rememberMe.value,
-      }),
+    const data: LoginResponse = await api.post('/api/login', {
+      username: username.value,
+      password: password.value,
+      rememberMe: rememberMe.value,
     })
 
-    const data = await res.json()
-
-    if (!res.ok) {
-      throw new Error(data.message || 'Error al iniciar sesión')
-    }
-
-    respuesta.value = JSON.stringify(data, null, 2)
-
-    // Opcional: redirigís a una página protegida
+    console.log('✅ token:', data) // accedés directamente
+    authStore.setToken(data.access_token, data.username, data.id)
     router.push('/dashboard')
-  } catch (err: any) {
-    error.value = err.message
+  } catch (err: unknown) {
+    if (isAxiosError(err)) {
+      const errorData = err.response?.data as ErrorResponse
+      error.value = errorData?.message || 'Error al iniciar sesión'
+      if (err.response?.status === 401) password.value = ''
+    } else {
+      error.value = 'Error inesperado'
+    }
+  } finally {
+    loading.value = false
   }
+}
+function isAxiosError(error: unknown): error is AxiosError {
+  return (error as AxiosError).isAxiosError !== undefined
 }
 </script>
 
